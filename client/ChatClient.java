@@ -25,7 +25,8 @@ public class ChatClient extends AbstractClient
    * The interface type variable.  It allows the implementation of 
    * the display method in the client.
    */
-  ChatIF clientUI; 
+  ChatIF clientUI;
+  String id; 
 
   
   //Constructors ****************************************************
@@ -38,12 +39,15 @@ public class ChatClient extends AbstractClient
    * @param clientUI The interface type variable.
    */
   
-  public ChatClient(String host, int port, ChatIF clientUI) 
+  public ChatClient(String id, String host, int port, ChatIF clientUI) 
     throws IOException 
   {
     super(host, port); //Call the superclass constructor
     this.clientUI = clientUI;
-    openConnection();
+    this.id = id;
+    try { openClientConnection(); }
+    catch (IOException ioe) { }//closeConnection(); }
+
   }
 
   
@@ -73,8 +77,8 @@ public class ChatClient extends AbstractClient
     catch(IOException e)
     {
       clientUI.display
-        ("Could not send message to server.  Terminating client.");
-      quit();
+        ("Cannot open connection. Awaiting command.");
+      //quit();
     }
   }
   
@@ -88,7 +92,48 @@ public class ChatClient extends AbstractClient
       closeConnection();
     }
     catch(IOException e) {}
+    
     System.exit(0);
+  }
+
+  /**
+   * Hook method called after the connection has been closed.
+   */
+  protected void connectionClosed() 
+  {
+    clientUI.display
+    ("SERVER SHUTTING DOWN! DISCONNECTING!\n" + "Abnormal termination of connection.");
+  }
+
+  /**
+   * Hook method called each time an exception
+   * is raised by the client listening thread.
+   *
+   * @param exception the exception raised.
+   */
+  protected void connectionException(Exception exception) 
+  {
+    clientUI.display
+    ("WARNING - The server has stopped listening for connections.");
+    try { 
+      closeConnection(); 
+    }
+    catch (IOException ioe) {}
+    //quit();
+  }
+
+  public void openClientConnection() throws IOException {
+    String text;
+    openConnection();
+    clientUI.display
+    (id + " has logged on.");
+
+    text = "A new client is attempting to connect to the server.\n"
+    + "Message received: #login " + id + " from null.\n";
+
+    handleMessageFromClientUI(text + "#login <" + id + ">");
+
+
   }
 }
 //End of ChatClient class

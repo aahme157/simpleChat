@@ -7,6 +7,7 @@ import client.*;
 import common.*;
 import java.util.Scanner;
 
+
 /**
  * This class constructs the UI for a chat client.  It implements the
  * chat interface in order to activate the display() method.
@@ -17,7 +18,7 @@ import java.util.Scanner;
  * @author Dr Robert Lagani&egrave;re
  * @version July 2000
  */
-public class ClientConsole implements ChatIF 
+public class ServerConsole implements ChatIF 
 {
   //Class variables *************************************************
   
@@ -29,9 +30,9 @@ public class ClientConsole implements ChatIF
   //Instance variables **********************************************
   
   /**
-   * The instance of the client that created this ConsoleChat.
+   * The instance of the server that created this ConsoleChat.
    */
-  ChatClient client;
+  EchoServer server;
 
   /**
    * Scanner to read from the console
@@ -47,24 +48,24 @@ public class ClientConsole implements ChatIF
    * @param host The host to connect to.
    * @param port The port to connect on.
    */
-  public ClientConsole(String id, String host, int port) 
+  public ServerConsole(int port) 
   {
+
+    server= new EchoServer(port);
+      
     try 
     {
-      client = new ChatClient(id, host, port, this);
+      server.listen(); //Start listening for connections
     } 
-    catch(IOException exception) 
+    catch (Exception ex) 
     {
-      System.out.println("Error: Can't setup connection!"
-                + " Terminating client.");
-      System.exit(1);
+      System.out.println("ERROR - Could not listen for clients!");
     }
 
     // Create scanner object to read from console
     fromConsole = new Scanner(System.in); 
   }
 
-  
   //Instance methods ************************************************
   
   /**
@@ -81,53 +82,39 @@ public class ClientConsole implements ChatIF
       {
         message = fromConsole.nextLine();
 
-        if(message.contains("sethost")) {
-          if(!client.isConnected())
-          {
-            String hostname = message.split("<")[1].substring(0, message.split("<")[1].length() - 1);
-            client.setHost(hostname);
-            System.out.println("host set to " + hostname);
-          }
-          else System.out.println("You cannot use this option while the client is logged in. Please log off.");
-          
-        }
-        else if(message.contains("setport")) {
-          if(!client.isConnected())
+        if(message.contains("setport")) {
+          if(server.getNumberOfClients() == 0 && !server.isListening())
           {
             String portnumber = message.split("<")[1].substring(0, message.split("<")[1].length() - 1);
-            client.setPort(Integer.parseInt(portnumber));
-            System.out.println("port set to " + portnumber);
-
+            server.setPort(Integer.parseInt(portnumber));
           }
-          else System.out.println("You cannot use this option while the client is logged in. Please log off.");
+          else System.out.println("You cannot use this option while the server is not closed.");
         }
         else{
           switch(message) 
           { 
               case "#quit": 
-                  client.quit();
+                  System.exit(0);
                   break;
-              case "#logoff": 
-                  client.closeConnection();
+              case "#stop": 
+                  server.stopListening();
                   break; 
-              case "#login": 
-                  if(!client.isConnected()) 
-                  {    
-                    try { client.openClientConnection(); }
-                    catch(IOException ioe ) {}
-                  } else System.out.println("The client is already connected.");
+              case "#close": 
+                  try { server.close(); }
+                  catch (IOException ioe) {}
                   break;
-              case "#gethost":
-                System.out.println("Host Name: " + client.getHost());
-                break;
+              case "#start":
+                  server.listen();
+                  break;
               case "#getport":
-                System.out.println("Port Number: " + client.getPort());
+                System.out.println("Port Number: " + server.getPort());
                 break;
               default: 
-                client.handleMessageFromClientUI(message);
+                display(message);
+                server.sendToAllClients( "SERVER MSG> " +  message);
                 break;
           }
-        } 
+        }
       }
     } 
     catch (Exception ex) 
@@ -158,39 +145,18 @@ public class ClientConsole implements ChatIF
    */
   public static void main(String[] args) 
   {
-    String host = "";
-    String id = "";
     int port = 0;  //The port number
 
     try
     {
-      id = args[0];
-    }
-    catch(ArrayIndexOutOfBoundsException e)
-    {
-      System.out.println("ERROR - No login ID specified. Connection aborted.");
-      System.exit(0);
-    }
-
-    try
-    {
-      host = args[1];
-    }
-    catch(ArrayIndexOutOfBoundsException e)
-    {
-      host = "localhost";
-    }
-
-    try
-    {
-      port = Integer.valueOf(args[2]);
+      port = Integer.valueOf(args[0]);
     }
     catch(ArrayIndexOutOfBoundsException e)
     {
       port = DEFAULT_PORT;
     }
 
-    ClientConsole chat= new ClientConsole(id, host, port);
+    ServerConsole chat= new ServerConsole(port);
     chat.accept();  //Wait for console data
   }
 }
